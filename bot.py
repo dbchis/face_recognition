@@ -32,7 +32,7 @@ class FaceRecognitionFrame(tk.Frame):
         
         # Start the video feed
         self.update_video()
-    
+
     def update_video(self):
         ret, frame = self.cap.read()
         if ret:
@@ -96,7 +96,7 @@ class Bot:
         self.idle_frame_index = 0
 
         # Load talking GIF
-        gif = Image.open("img/robot_talking3.gif")
+        gif = Image.open("img/botbot.gif")
         while True:
             try:
                 self.frames.append(gif.copy())
@@ -105,7 +105,7 @@ class Bot:
                 break
 
         # Load idle GIF
-        idle_gif = Image.open("img/robot_talking3.gif")
+        idle_gif = Image.open("img/botbot.gif")
         while True:
             try:
                 self.idle_frames.append(idle_gif.copy())
@@ -117,7 +117,8 @@ class Bot:
         self.image_label.pack()
         self.face_recognition_frame = FaceRecognitionFrame(root)
         threading.Thread(target=self.call_sen, args=()).start()
-
+       
+    
     def click_enter(self):
         global stop_reading
         keyboard.wait('enter')
@@ -396,7 +397,7 @@ class Bot:
         self.speak("Facebook đã được mở")
     def call_sen(self):
         self.show_robot_talking()
-        time.sleep(10)
+        time.sleep(5)
         self.speak("Chào bạn, bạn vui lòng nhìn thẳng để tôi xác thực")
         # name = get_text()
         while True:
