@@ -31,3 +31,4 @@ import torch
 import keyboard
 import psutil
 import pygetwindow as gw
+import random

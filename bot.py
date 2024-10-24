@@ -32,6 +32,12 @@ class FaceRecognitionFrame(tk.Frame):
         
         # Start the video feed
         self.update_video()
+    def get_data_path(self):
+        if getattr(sys, 'frozen', False):
+            base_path = sys._MEIPASS  # Đường dẫn khi chạy từ .exe
+        else:
+            base_path = os.path.dirname(__file__)  # Đường dẫn khi chạy từ IDE
+        return os.path.join(base_path, 'data', 'face_data.csv')
 
     def update_video(self):
         ret, frame = self.cap.read()
@@ -44,18 +50,19 @@ class FaceRecognitionFrame(tk.Frame):
         self.video_label.after(10, self.update_video)
     
     def save_face(self):
-        ret, frame = self.cap.read()
-        if ret:
-            img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            img_cropped = self.mtcnn(img)
-            if img_cropped is not None:
-                img_embedding = self.resnet(img_cropped.unsqueeze(0)).detach().numpy()
-                df = pd.DataFrame(img_embedding)
-                df.to_csv('data/face_data.csv', index=False)
-                messagebox.showinfo("Info", "Face data saved successfully!")
-            else:
-                messagebox.showwarning("Warning", "No face detected!")
-    
+            ret, frame = self.cap.read()
+            if ret:
+                img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                img_cropped = self.mtcnn(img)
+                if img_cropped is not None:
+                    img_embedding = self.resnet(img_cropped.unsqueeze(0)).detach().numpy()
+                    df = pd.DataFrame(img_embedding)
+                    data_path = self.get_data_path()
+                    df.to_csv(data_path, index=False)
+                    messagebox.showinfo("Info", "Face data saved successfully!")
+                else:
+                    messagebox.showwarning("Warning", "No face detected!")
+
     def verify_face(self):
         ret, frame = self.cap.read()
         if ret:
@@ -63,17 +70,23 @@ class FaceRecognitionFrame(tk.Frame):
             img_cropped = self.mtcnn(img)
             if img_cropped is not None:
                 img_embedding = self.resnet(img_cropped.unsqueeze(0)).detach().numpy()
-                saved_data = pd.read_csv('data/face_data.csv').values
-                distance = np.linalg.norm(saved_data - img_embedding)
-                if distance < 0.8:  # You can adjust the threshold
-                    return 1
-                    messagebox.showinfo("Info", "Chào chủ nhân!")
+                data_path = self.get_data_path()
+                
+                if os.path.exists(data_path):
+                    saved_data = pd.read_csv(data_path).values
+                    distance = np.linalg.norm(saved_data - img_embedding)
+                    if distance < 0.8:  # Có thể điều chỉnh ngưỡng
+                        # messagebox.showinfo("Info", "Chào chủ nhân!")
+                        return 1
+                    else:
+                        # messagebox.showwarning("Warning", "Face not recognized!")
+                        return 0
                 else:
+                    # messagebox.showwarning("Warning", "Face data file not found!")
                     return 0
-                    messagebox.showwarning("Warning", "Face not recognized!")
             else:
+                # messagebox.showwarning("Warning", "No face detected!")
                 return 0
-                messagebox.showwarning("Warning", "No face detected!")
     
     def show(self):
         self.pack(fill=tk.BOTH, expand=True)
@@ -86,17 +99,39 @@ class FaceRecognitionFrame(tk.Frame):
         cv2.destroyAllWindows()
 # end xác thực
 class Bot:
-    def __init__(self,root):
+    def __init__(self, root):
         self.root = root
         self.root.title("Bot")
+        self.root.configure(bg='#fcfefc')
+         # Đặt kích thước cửa sổ
+        width = 498
+        height = 498
+        self.root.geometry(f"{width}x{height}")
+
+        # Tính toán vị trí để cửa sổ nằm chính giữa màn hình
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x = (screen_width // 2) - (width // 2)
+        y = (screen_height // 2) - (height // 2)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+        self.root.resizable(False, False)
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         # Load frames for talking and idle animations
         self.frames = []
         self.idle_frames = []
         self.frame_index = 0
         self.idle_frame_index = 0
+        self.running = False
+        self.showing_gif = False
+        # Determine base path for assets
+        if getattr(sys, 'frozen', False):
+            base_path = sys._MEIPASS  # Path when running from .exe
+        else:
+            base_path = os.path.dirname(__file__)  # Path when running from IDE
 
         # Load talking GIF
-        gif = Image.open("img/botbot.gif")
+        gif_path = os.path.join(base_path, "img", "robot_talking.gif")
+        gif = Image.open(gif_path)
         while True:
             try:
                 self.frames.append(gif.copy())
@@ -105,16 +140,18 @@ class Bot:
                 break
 
         # Load idle GIF
-        idle_gif = Image.open("img/botbot.gif")
+        idle_gif = Image.open(gif_path)  # Use the same path
         while True:
             try:
                 self.idle_frames.append(idle_gif.copy())
                 idle_gif.seek(len(self.idle_frames))
             except EOFError:
                 break
+        
         # GUI setup
         self.image_label = tk.Label(root)
-        self.image_label.pack()
+        # self.image_label.pack()
+        self.image_label.place(relx=0.5, rely=0.5, anchor='center')
         self.face_recognition_frame = FaceRecognitionFrame(root)
         threading.Thread(target=self.call_sen, args=()).start()
        
@@ -126,6 +163,7 @@ class Bot:
         print(stop_reading)
         print("bạn vừa nhấn enter")
     def speak(self,text):
+        self.show_robot_talking()
         tts = gTTS(text=text, lang='vi')
         filename = "voice.mp3"
         tts.save(filename)
@@ -139,9 +177,11 @@ class Bot:
             os.remove(filename)
         
         
+        
 
 
     def get_voice(self):
+        self.show_robot_idle()
         r = sr.Recognizer()
         with sr.Microphone() as source:
             print("Me: ", end = '')
@@ -156,11 +196,16 @@ class Bot:
 
     def stop(self):
         self.speak("Hẹn gặp lại bạn nhé!")
-        root.quit()
+        self.root.quit()
+    
         
         
     def get_text(self):
+        
         for i in range(3):
+            if(self.running==False):
+                self.stop()
+                return 0
             text = self.get_voice()
             if text:
                 return text.lower()
@@ -247,14 +292,14 @@ class Bot:
             # Kiểm tra xem tiêu đề cửa sổ có chứa từ khóa "YouTube" hay không
             if 'YouTube' in window.title:
                 window.close()
-                speak("Đã đóng YouTube.")
+                self.speak("Đã đóng YouTube.")
                 return
 
         self.speak("Không tìm thấy YouTube đang mở bởi chương trình.")
     def search_google(self):
         self.speak("Xin mời bạn nhập thông tin cần tìm kiếm")
         time.sleep(3)
-        query = get_text()
+        query = self.get_text()
         url = f'https://www.google.com/search?q={query}'
         webbrowser.open(url)
         self.speak("Thông tin bạn cần tìm kiếm đã được mở trên Google Chrome!")   
@@ -375,88 +420,106 @@ class Bot:
 
 
     def show_robot_talking(self):
-        # global frame_index
-        frame = self.frames[self.frame_index]
-        photo_talking = ImageTk.PhotoImage(frame)
-        self.image_label.configure(image=photo_talking)
-        self.image_label.image = photo_talking
-        self.frame_index = (self.frame_index + 1) % len(self.frames)
-        self.image_label.after(100, self.show_robot_talking)
+        self.showing_gif = True
+        self.frame_index = 0  # Đặt lại chỉ số frame
+        self.update_talking_gif()
+    def update_talking_gif(self):
+        if self.showing_gif:  # Kiểm tra trạng thái
+            frame = self.frames[self.frame_index]
+            photo_talking = ImageTk.PhotoImage(frame)
+            self.image_label.configure(image=photo_talking)
+            self.image_label.image = photo_talking
+            self.frame_index = (self.frame_index + 1) % len(self.frames)
+            self.image_label.after(100, self.update_talking_gif)  # Tiếp tục cập nhật GIF
 
     def show_robot_idle(self):
-        global idle_frame_index
-        idle_frame = self.idle_frames[idle_frame_index]
+        self.showing_gif = False
+        idle_frame = self.idle_frames[self.idle_frame_index]
         photo_idle = ImageTk.PhotoImage(idle_frame)
         self.image_label.configure(image=photo_idle)
         self.image_label.image = photo_idle
-        idle_frame_index = (idle_frame_index + 1) % len(self.idle_frames)
-        self.image_label.after(100, self.show_robot_idle)
+        # self.idle_frame_index = (self.idle_frame_index + 1) % len(self.idle_frames)
+        # self.image_label.after(100, self.show_robot_idle)
     def open_facebook(self):
         url = "https://www.facebook.com"
         webbrowser.open(url)
         self.speak("Facebook đã được mở")
+    def greet_admin(self):
+        # Lấy thời gian hiện tại
+        current_time = datetime.datetime.now()
+        hour = current_time.hour
+
+        # Xác định thời gian trong ngày
+        if 1 <= hour < 11:
+            self.speak("Chào buổi sáng, Admin")
+        elif 11 <= hour < 13:
+            self.speak("Chào buổi trưa, Admin")
+        elif 13 <= hour < 18:
+            self.speak("Chào buổi chiều, Admin")
+        elif 18 <= hour < 22:
+            self.speak("Chào buổi tối, Admin")
+        else:
+            self.speak("Chào buổi khuya, Admin")
     def call_sen(self):
-        self.show_robot_talking()
-        time.sleep(5)
-        self.speak("Chào bạn, bạn vui lòng nhìn thẳng để tôi xác thực")
-        # name = get_text()
-        while True:
-            if self.face_recognition_frame.verify_face() == 1:
-                name = "Chí"
-                self.speak("Xác thực thành công, Chào Admin")
+        self.running = True
+        ads = [
+            "Yorn sẵn sàng lắng nghe lệnh từ Admin.",
+            "Tôi đang ở đây để giúp đỡ, Admin.",
+            "Có điều gì tôi có thể làm cho Admin không?",
+            "Admin cần tôi làm gì?",
+            "Tôi luôn sẵn sàng, Admin!"
+        ]
+        self.show_robot_idle()
+        time.sleep(2)
+        self.greet_admin()
+        while self.running:
+            self.speak(random.choice(ads))
+            text = self.get_text()
+            if not text:
                 break
-            else:
-                self.speak("Xác thực không thành công!")
-            time.sleep(1)  # Wait for 1 second before the next verification attempt
-        
-        if name:
-            # speak("Chào bạn {}".format(name))
-            # time.sleep(1)
-            self.speak("admin cần gì?")
-            
-            while True:
-                text = self.get_text()
-                if not text:
-                    break
-                elif "trò chuyện" in text or "nói chuyện" in text:
-                    self.talk(name)
-                elif "dừng" in text or "thôi" in text:
-                    self.stop()
-                    break
-                elif "mở" in text:
-                    if "mở google và tìm kiếm" in text:
-                        self.google_search(text)
-                    elif "." in text:
-                        self.open_website(text)
-                    elif "word" in text or "excell" in text or "vscode" in text:
-                        self.open_application(text)       
-                elif "ngày" in text  or "giờ" in text:
-                    self.get_time(text)
-                elif "chơi nhạc" in text or "nghe nhạc" in text or "xem phim" in text:
-                    self.play_youtube()
-                elif "thời tiết" in text:
-                    self.weather()
-                elif "định nghĩa" in text:
-                    self.tell_me()
-                elif "có thể làm gì" in text:
-                    self.help()
-                elif "tìm kiếm" in text:
-                    self.search_google()
-                elif "không xem" in text or "đóng youtube" in text:
-                    self.close_youtube()
-                elif "close word" in text:
-                    self.close_word()
-                elif "close excel" in text:
-                    self.close_excel()
-                elif "facebook" in text or "Facebook" in text:
-                    self.open_facebook()
+            elif "trò chuyện" in text or "nói chuyện" in text:
+                self.talk("Admin")
+            elif "dừng" in text or "thôi" in text:
+                self.stop()
+                break
+            elif "mở" in text:
+                if "mở google và tìm kiếm" in text:
+                    self.google_search(text)
+                elif "." in text:
+                    self.open_website(text)   
+            elif "ngày" in text  or "giờ" in text:
+                self.get_time(text)
+            elif "chơi nhạc" in text or "nghe nhạc" in text or "xem phim" in text:
+                self.play_youtube()
+            elif "thời tiết" in text:
+                self.weather()
+            elif "định nghĩa" in text:
+                self.tell_me()
+            elif "có thể làm gì" in text or "làm gì" in text or "có thể" in text:
+                self.help()
+            elif "tìm kiếm" in text:
+                self.search_google()
+            elif "không xem" in text or "đóng youtube" in text:
+                self.close_youtube()
+            elif "facebook" in text or "Facebook" in text:
+                self.open_facebook()
 
-
+    def on_closing(self):
+        print("Dừng chương trình")
+        self.running = False  # Dừng vòng lặp
+        # self.root.destroy()
+        # sys.exit()
+        print(self.running)
+    
+    
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    client1 = Bot(root)
+    bot = Bot(root)
     root.mainloop()
+   
+   
+    
 
            
