@@ -1,0 +1,23 @@
+{
+    "làm gì": "help",
+    "có thể": "help",
+    "dừng": "stop",
+    "stop": "stop",
+    "trò chuyện": "talk",
+    "nói chuyện": "talk",
+    "ngày": "get_time",
+    "giờ": "get_time",
+    "thời tiết": "weather",
+    "thông tin đối tượng": "tell_me",
+    "định nghĩa": "tell_me",
+    "tìm kiếm": "search_google",
+    "search": "search_google",
+    "nhạc": "play_youtube",
+    "nghe nhạc": "play_youtube",
+    "xem phim": "play_youtube",
+    "movie": "play_youtube",
+    "close youtube": "close_youtube",
+    "browser":"open_chrome",
+    "facebook": "open_facebook"
+}
+
