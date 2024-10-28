@@ -34,8 +34,7 @@ class Bot:
         self.running = False
         self.showing_gif = False
         self.verify = False
-        with open('commands.json', 'r', encoding='utf-8') as file:
-            self.commands = json.load(file)
+        self.commands = self.load_commands()
         # Determine base path for assets
         if getattr(sys, 'frozen', False):
             base_path = sys._MEIPASS  # Path when running from .exe
@@ -67,7 +66,19 @@ class Bot:
         self.face_recognition_frame = FaceRecognitionFrame(root)
         threading.Thread(target=self.call_sen, args=()).start()
        
-    
+    def load_commands(self):
+        # Determine base path for assets
+        if getattr(sys, 'frozen', False):
+            base_path = sys._MEIPASS  # Path when running from .exe
+        else:
+            base_path = os.path.dirname(__file__)  # Path when running from IDE
+        
+        # Construct the full path to the commands.json file
+        commands_path = os.path.join(base_path, 'commands.json')
+
+        # Load the JSON file
+        with open(commands_path, 'r', encoding='utf-8') as file:
+            return json.load(file)
     def click_enter(self):
         global stop_reading
         keyboard.wait('enter')
@@ -104,7 +115,8 @@ class Bot:
 
     def stop(self):
         self.speak("Hẹn gặp lại bạn nhé!")
-        root.quit()
+        self.root.quit()
+        sys.exit()
     
         
         
